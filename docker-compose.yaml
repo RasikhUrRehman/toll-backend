@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    networks:
+      - toll-network
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=tolldb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - toll-network
+
+  cache:
+    image: redis:6
+    ports:
+      - "6379:6379"
+    networks:
+      - toll-network
+
+networks:
+  toll-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

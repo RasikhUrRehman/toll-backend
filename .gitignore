@@ -1,0 +1,17 @@
+# Video files
+*.mp4
+*.avi
+
+# Jupyter Notebooks
+*.ipynb
+
+# Virtual Environment
+venv/
+env/
+.env/
+.venv/
+ENV/
+
+# Python virtual environment
+__pycache__/
+*.py[cod]

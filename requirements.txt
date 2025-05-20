@@ -1,0 +1,11 @@
+common
+paddlepaddle
+paddleocr
+numpy
+pandas
+opencv-python
+ultralytics
+easyocr
+filterpy
+matplotlib
+pillow
