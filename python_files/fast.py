@@ -5,8 +5,8 @@ from collections import defaultdict
 import os
 
 # Load models
-coco_model = YOLO('yolov8n.pt')
-plate_model = YOLO('license_plate_detector.pt')
+coco_model = YOLO('../models/yolov8n.pt')
+plate_model = YOLO('../models/license_plate_detector.pt')
 
 VEH_CLASSES = [2, 3, 5, 7]
 CLASS_NAME = {2: "Car", 3: "Motorbike", 5: "Bus", 7: "Truck"}

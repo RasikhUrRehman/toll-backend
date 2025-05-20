@@ -12,7 +12,7 @@ from code_toll_fast import (
     ALLOWED_VEHICLE_IDS, HARD_CODED_PLATES, DAY4_VEHICLES, DAY3_HARD_CODED_PLATES,
     vehicle_counts, total_toll, vehicle_summary, detection_log  # Add these imports
 )
-from sort.sort import Sort
+from sort import Sort
 
 app = FastAPI()
 
@@ -23,141 +23,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-def process_single_frame_jugaar(frame, frame_data, previous_total_toll=0, previous_vehicle_counts=None, previous_total_vehicle=0):
-    logs = {}
-    
-    print(frame_data)
-    # Create a copy of the frame to avoid modifying the original
-    processed_frame = frame.copy()
-
-    cv2.rectangle(processed_frame, (int(frame_data['p_x1']), int(frame_data['p_y1'])), (int(frame_data['p_x2']), int(frame_data['p_y2'])), (0, 0, 255), 2)
-    cv2.rectangle(processed_frame, (int(frame_data['v_x1']), int(frame_data['v_y1'])), (int(frame_data['v_x2']), int(frame_data['v_y2'])), (0, 255, 0), 2)
-    
-    _, jpeg = cv2.imencode('.jpg', processed_frame)
-    jpeg_b64 = base64.b64encode(jpeg.tobytes()).decode('utf-8')
-
-    if previous_total_toll > frame_data['total_toll']:
-        previous_total_toll = frame_data['total_toll']
-        
-
-        previous_vehicle_counts[frame_data['vehicle_type']] += 1
-        previous_total_vehicle += 1
-
-    vehicle_id = frame_data['vehicle_id']  # Get vehicle_id from the Series
-    vehicle_summary = {
-        vehicle_id: {
-            "type": frame_data['vehicle_type'],
-            "plate": frame_data['plate_text'],
-            "toll": frame_data['individual_toll']
-        }
-    }
-
-    logs = {
-            "processed_frame": jpeg_b64,
-            "total_vehicles": previous_total_vehicle,
-            "total_toll": previous_total_toll,
-            "vehicle_details": [
-                {
-                    "id": vid,
-                    "type": info["type"],
-                    "plate": info["plate"],
-                    "toll": info["toll"]
-                }
-                for vid, info in vehicle_summary.items()
-            ]
-        }
-    
-    return logs, previous_total_toll, previous_vehicle_counts, previous_total_vehicle
-
-
-@app.websocket("/wss")
-async def websocket_endpoint_jugaar(websocket: WebSocket):
-    await websocket.accept()
-    print("Client connected")
-
-    try:
-
-        data = await websocket.receive_json()
-        video_name = data.get('video_name', 0)
-        print(video_name)
-        day_only = video_name.split('.')[0] 
-
-        try:
-            
-            csv_path = f"{day_only}_metadata_processed.csv"
-            video_path = f"{day_only}.mp4"
-
-            frame_data = pd.read_csv(csv_path)
-        except FileNotFoundError:
-            await websocket.send_json({"error": "File not found"})
-            return
-        
-
-        cap = cv2.VideoCapture(video_path)
-
-        frame_number = 0
-        previous_total_toll = 0
-        previous_vehicle_counts = {
-            "Car": 0,
-            "Bus": 0,
-            "Bike": 0,
-            "Truck": 0
-        }
-        previous_total_vehicle = 0
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            
-            # Get the data for the current frame, if any
-            #frame_data_for_frame = frame_data.get(frame_number, [])
-            
-            # Process the single frame
-            try:
-                logs, previous_total_toll, previous_vehicle_counts, previous_total_vehicle = process_single_frame_jugaar(
-                    frame, frame_data.iloc[frame_number], previous_total_toll, previous_vehicle_counts, previous_total_vehicle
-                )
-                
-                frame_number += 1
-
-                _, jpeg = cv2.imencode('.jpg', frame)
-                jpeg_b64 = base64.b64encode(jpeg.tobytes()).decode('utf-8')
-                
-                # Prepare stats
-                jpeg_b64 = logs["processed_frame"]
-
-                # Extract vehicle details from logs
-                vehicle_details = logs["vehicle_details"]
-
-                # Create a list of vehicle IDs (only cars for this specific count)
-                #car_idss = [item["id"] for item in vehicle_details if item["type"] == "Car"]
-
-                # Define ALLOWED_VEHICLE_IDS (assuming all vehicles are allowed)
-                #ALLOWED_VEHICLE_IDS = [item["id"] for item in vehicle_details]
-
-                # Create the stats dictionary
-                stats = {
-                    "processed_frame": jpeg_b64,
-                    "total_vehicles": previous_total_vehicle,
-                    "total_toll": previous_total_toll,
-                    "vehicle_details": vehicle_details,
-                    "vehicle_detections": {
-                        "Car": previous_vehicle_counts.get("Car", 0),
-                        "Bus": previous_vehicle_counts.get("Bus", 0),
-                        "Bike": previous_vehicle_counts.get("Bike", 0),
-                        "Truck": previous_vehicle_counts.get("Truck", 0)
-                    }
-                }
-                # Send response
-                await websocket.send_json(stats)
-
-            except json.JSONDecodeError:
-                await websocket.send_json({"error": "Invalid JSON data"})
-            except Exception as e:
-                await websocket.send_json({"error": str(e)})
-
-    except WebSocketDisconnect:
-        print("Client disconnected")
 
 def make_json_serializable(obj):
     """Convert NumPy types to Python native types, handling NaN values"""
@@ -182,7 +47,6 @@ def make_json_serializable(obj):
     else:
         return obj
     
-
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -244,6 +108,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 #print("End of video stream")
                 break
             try:
+                frame = cv2.resize(frame, (320 , 480))
                 # Receive frame data as base64 from frontend
                 
                 #frame_data = data.get('frame')
@@ -346,9 +211,9 @@ async def websocket_endpoint(websocket: WebSocket):
                     if 'vehicle_type' in detection:  # Vehicle detection
                         x1, y1, x2, y2 = detection['coords']
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                        cv2.putText(frame, detection['vehicle_type'], (x1, y1 - 10),
+                        cv2.putText(frame, data_for_frame['vehicle_type'], (x1, y1 - 10),
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                        cv2.putText(frame, f"Toll: Rs. {detection['toll_value']}", (x1, y2 + 20),
+                        cv2.putText(frame, f"Toll: Rs. {data_for_frame['individual_toll']}", (x1, y2 + 20),
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
                         
                 #     else:  # License plate detection
@@ -361,7 +226,17 @@ async def websocket_endpoint(websocket: WebSocket):
                 if previous_total_toll < data_for_frame['total_toll']:
                     previous_total_toll = data_for_frame['total_toll']
                     
-                    previous_vehicle_counts[data_for_frame['vehicle_type']] += 1
+                    if data_for_frame['vehicle_type'] == "SUV":
+                        previous_vehicle_counts["Car"] += 1
+                        print("added SUV")
+
+                    elif data_for_frame['vehicle_type'] == "LCV":
+                        previous_vehicle_counts["Bus"] += 1
+                        print("added LCV")
+
+                    else:
+                        previous_vehicle_counts[data_for_frame['vehicle_type']] += 1
+
                     previous_total_vehicle += 1
 
                     
@@ -391,6 +266,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 }
                 
                 stats = make_json_serializable(stats)
+                print(previous_vehicle_counts)
                 
                 # Send response
                 await websocket.send_json(stats)

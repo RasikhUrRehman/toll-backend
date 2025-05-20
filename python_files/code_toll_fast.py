@@ -417,8 +417,6 @@ def process_video(source=0, output_path=None, is_camera=False):
     # if not is_camera and save_video:
     #     handle_video_saving(output_path)
 
-
-
 def menu():
     while True:
         print("\n--- Vehicle Detection Menu ---")
