@@ -4,10 +4,12 @@ from ultralytics import YOLO
 from collections import defaultdict
 import os
 import time
+import torch
 
 # Load models
-coco_model = YOLO('models/yolov8n.pt').to('cuda')
-plate_model = YOLO('models/license_plate_detector.pt').to('cuda')
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+coco_model = YOLO('models/yolov8n.pt').to(device)
+plate_model = YOLO('models/license_plate_detector.pt').to(device)
 
 VEH_CLASSES = [2, 3, 5, 7]
 CLASS_NAME = {2: "Car", 3: "Motorbike", 5: "Bus", 7: "Truck"}

@@ -9,17 +9,12 @@ services:
       - .:/app
     networks:
       - toll-network
-
-  db:
-    image: postgres:13
-    environment:
-      - POSTGRES_DB=tolldb
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - toll-network
+    shm_size: '2gb'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
 
   cache:
     image: redis:6
@@ -27,6 +22,19 @@ services:
       - "6379:6379"
     networks:
       - toll-network
+
+  test:
+    image: nvidia/cuda:11.6.2-base-ubuntu20.04
+    command: nvidia-smi
+      # Remove deploy if not using Swarm
+    networks:
+      - toll-network
+    # Add this for Compose v3.8+ to request all GPUs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
 
 networks:
   toll-network:

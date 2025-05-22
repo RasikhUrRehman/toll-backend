@@ -1,11 +1,10 @@
-common
-paddlepaddle
-paddleocr
+opencv-python
 numpy
 pandas
-opencv-python
 ultralytics
 easyocr
 filterpy
 matplotlib
 pillow
+uvicorn[standard]
+fastapi
